@@ -64,18 +64,20 @@ Trois gestes, une seule fois, dans <https://ecom-hub-cyan.vercel.app/admin> :
 
    | Nom | Prix | Frais domicile / bureau |
    | --- | --- | --- |
-   | `أسد + يارا — العلبتين` | `3700` | voir plus bas |
-   | `أسد أو يارا — علبة واحدة` | `2200` | voir plus bas |
+   | `أسد + يارا — العلبتين` | `3700` | `0` et `0` |
+   | `أسد أو يارا — علبة واحدة` | `2200` | `0` et `0` |
 
 2. **Landing pages → Connecter une nouvelle landing page**, URL
    `https://brikm3726-stack.github.io/assadyara/`.
 3. Reporter les trois codes obtenus dans `.env`, puis `npm run deploy`.
+   Le hub numérote à la suite : `PROD_001` à `PROD_003` sont déjà les trois
+   coloris McQUENNE, les parfums prendront donc les numéros suivants.
 
 ```env
 VITE_HUB_URL=https://ecom-hub-cyan.vercel.app
 VITE_HUB_LANDING_ID=LANDING_003
-VITE_HUB_PRODUIT_PACK=PROD_002
-VITE_HUB_PRODUIT_UNITE=PROD_003
+VITE_HUB_PRODUIT_PACK=PROD_004
+VITE_HUB_PRODUIT_UNITE=PROD_005
 ```
 
 **Les frais de livraison.** Si les champs « Frais domicile » et « Frais
@@ -83,7 +85,8 @@ bureau » du produit restent vides, le hub applique sa grille par wilaya et
 l'ajoute au total : la page annonce 3700 دج, le dashboard affiche 4400 دج, et
 le livreur réclame un montant que l'acheteur n'a jamais vu. Deux issues
 cohérentes : mettre `0` dans ces deux champs (livraison offerte, le prix
-affiché est le prix payé), ou afficher les frais sur la page.
+affiché est le prix payé), ou afficher les frais sur la page. **Choix retenu
+ici : `0` partout**, la page annonce un prix tout compris.
 
 Tant que `VITE_HUB_LANDING_ID` est vide, l'appel au hub est simplement sauté :
 la page continue de fonctionner avec l'e-mail seul.
@@ -93,7 +96,7 @@ la page continue de fonctionner avec l'e-mail seul.
 ```json
 {
   "landingPageId": "LANDING_003",
-  "productId": "PROD_003",
+  "productId": "PROD_005",
   "customer": {
     "name": "أمينة بن علي",
     "phone": "0550123456",
