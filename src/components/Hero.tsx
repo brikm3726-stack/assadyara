@@ -6,6 +6,11 @@ import { IconeBillets, IconeFleche, IconeLivraison, IconePanier } from './Icones
 
 type Props = { auClicCommander: () => void };
 
+/* Préfixe de base Vite : '/' en dev et sur Netlify/Vercel,
+   '/assadyara/' sur GitHub Pages. Les chemins « /img/… » en dur
+   ignoreraient ce préfixe et renverraient 404 hors racine. */
+const BASE = import.meta.env.BASE_URL;
+
 /**
  * Section 1 — la photo du client est le tout premier élément visible.
  * Pleine largeur sur téléphone (elle est au format 9:16, celui de l'écran),
@@ -54,8 +59,8 @@ export function Hero({ auClicCommander }: Props) {
                 }}
               />
               <img
-                src="/img/produit-750.webp"
-                srcSet="/img/produit-380.webp 380w, /img/produit-560.webp 560w, /img/produit-750.webp 750w, /img/produit-941.webp 941w"
+                src={`${BASE}img/produit-750.webp`}
+                srcSet={`${BASE}img/produit-380.webp 380w, ${BASE}img/produit-560.webp 560w, ${BASE}img/produit-750.webp 750w, ${BASE}img/produit-941.webp 941w`}
                 sizes="(min-width: 1024px) 470px, (min-width: 32.5rem) 60vw, 100vw"
                 width={941}
                 height={1672}
