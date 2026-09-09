@@ -181,7 +181,9 @@ function CarteOffre({
           )}
         </div>
 
-        <ul className="mt-4 space-y-1.5 text-[0.92rem] text-encre-2">
+        <p className="mt-1 text-[0.82rem] font-medium text-encre-2">+ التوصيل حسب الولاية</p>
+
+        <ul className="mt-3 space-y-1.5 text-[0.92rem] text-encre-2">
           {details.map((ligne) => (
             <li key={ligne} className="flex items-center justify-center gap-1.5">
               <IconeCoche taille={14} className="text-or-fonce" />

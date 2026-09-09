@@ -13,6 +13,7 @@
  * envoyée en arrière-plan, en « keepalive » pour survivre à la fermeture de
  * l'onglet.
  */
+import type { ModeLivraison } from './livraison';
 import {
   COMMANDE_ENDPOINT,
   HUB_LANDING_ID,
@@ -37,7 +38,13 @@ export type Commande = {
   produit: string;
   conditionnement: string;
   parfum: CleParfum | null;
+  /** Prix du produit seul. */
   prix: number;
+  livraison: ModeLivraison;
+  /** Frais de livraison NOEST pour la wilaya choisie. */
+  frais: number;
+  /** prix + frais — ce que l'acheteur paiera au livreur. */
+  total: number;
 };
 
 const CLE_STOCKAGE = 'commandes-asad-yara';
@@ -85,6 +92,8 @@ function enTexte(c: Commande): string {
     `الطلب : ${c.reference}`,
     `المنتج : ${c.produit} (${c.conditionnement})`,
     `السعر : ${c.prix} دج`,
+    `التوصيل : ${c.frais} دج (${c.livraison === 'bureau' ? 'إلى المكتب' : 'إلى المنزل'})`,
+    `المجموع : ${c.total} دج`,
     `الاسم : ${c.nom}`,
     `الهاتف : ${c.telephone}`,
     `الولاية : ${c.wilayaCode} — ${c.wilaya}`,
@@ -134,10 +143,11 @@ async function envoyerAuHub(commande: Commande): Promise<ReponseHub> {
       },
       quantity: 1,
       variant: commande.parfum ? PARFUMS[commande.parfum].nom : null,
-      delivery: 'domicile',
+      delivery: commande.livraison,
       note: [commande.notes, `réf. page ${commande.reference}`].filter(Boolean).join(' — '),
       source: 'Landing أسد & يارا',
-      total: commande.prix,
+      // Indicatif : le hub recalcule tout à partir du produit et de sa grille.
+      total: commande.total,
       ...(campagne ? { utm: campagne } : {}),
     }),
   });

@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "images": "node scripts/optimiser-images.mjs",
     "build:pages": "tsc -b && vite build --base=/assadyara/",
-    "deploy": "npm run build:pages && gh-pages -d dist -m \"Déploiement GitHub Pages\""
+    "deploy": "npm run build:pages && gh-pages -d dist -m \"Déploiement GitHub Pages\"",
+    "tarifs": "node scripts/synchroniser-tarifs.mjs"
   },
   "dependencies": {
     "react": "^19.0.0",

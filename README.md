@@ -16,6 +16,7 @@ npm install
 npm run dev      # http://localhost:5180
 npm run build    # génère dist/ (racine d'un domaine)
 npm run preview  # relit le dossier dist/
+npm run tarifs   # recopie la grille de livraison du hub
 npm run deploy   # build avec la base /assadyara/ + publication sur gh-pages
 ```
 
@@ -62,10 +63,10 @@ Trois gestes, une seule fois, dans <https://ecom-hub-cyan.vercel.app/admin> :
    montant à partir du produit et **ignore le prix envoyé par la page** : il
    faut donc un produit par offre.
 
-   | Nom | Prix | Frais domicile / bureau |
-   | --- | --- | --- |
-   | `أسد + يارا — العلبتين` | `3700` | `0` et `0` |
-   | `أسد أو يارا — علبة واحدة` | `2200` | `0` et `0` |
+   | Nom | Identifiant | Prix | Frais domicile / bureau |
+   | --- | --- | --- | --- |
+   | `Assad Yara` | `pack` | `3700` | *(laisser vides)* |
+   | `Assad ou Yara — علبة واحدة` | `unite` | `2200` | *(laisser vides)* |
 
 2. **Landing pages → Connecter une nouvelle landing page**, URL
    `https://brikm3726-stack.github.io/assadyara/`.
@@ -80,16 +81,49 @@ VITE_HUB_PRODUIT_PACK=PROD_004
 VITE_HUB_PRODUIT_UNITE=PROD_005
 ```
 
-**Les frais de livraison.** Si les champs « Frais domicile » et « Frais
-bureau » du produit restent vides, le hub applique sa grille par wilaya et
-l'ajoute au total : la page annonce 3700 دج, le dashboard affiche 4400 دج, et
-le livreur réclame un montant que l'acheteur n'a jamais vu. Deux issues
-cohérentes : mettre `0` dans ces deux champs (livraison offerte, le prix
-affiché est le prix payé), ou afficher les frais sur la page. **Choix retenu
-ici : `0` partout**, la page annonce un prix tout compris.
+**Les frais de livraison sont facturés en plus, et affichés sur la page.**
+Les champs « Frais domicile » et « Frais bureau » des deux produits restent
+donc **vides** : le hub applique sa grille par wilaya, et la page affiche
+exactement la même chose. Voir la section suivante.
 
 Tant que `VITE_HUB_LANDING_ID` est vide, l'appel au hub est simplement sauté :
 la page continue de fonctionner avec l'e-mail seul.
+
+#### La livraison
+
+L'acheteuse choisit sa wilaya, puis **إلى المنزل** ou **إلى المكتب** ; le tarif
+NOEST s'affiche en face de chaque mode et le résumé additionne :
+
+```
+المنتج : أسد + يارا
+السعر : 3700 دج
+التوصيل (إلى المنزل) : 800 دج
+─────────────────────────
+المجموع : 4500 دج
+```
+
+Le calcul de la page et celui du hub doivent donner le même montant, sinon le
+livreur réclamerait autre chose que ce qui a été promis. La grille vient donc
+du hub, jamais d'une saisie manuelle :
+
+```bash
+npm run tarifs   # recopie la grille du hub dans src/data/tarifs-livraison.ts
+```
+
+Cette copie s'affiche instantanément, sans attendre le réseau. Au chargement,
+la page redemande la grille du jour au hub et corrige les chiffres si un tarif
+a bougé — un changement de tarif dans Dashboard → Réglages est donc visible
+sans redéployer. Le fichier généré n'est là que pour le premier affichage et
+pour les cas où le hub ne répond pas.
+
+Deux wilayas ne sont pas desservies par NOEST (**50** Bordj Badji Mokhtar et
+**54** In Guezzam au dernier relevé). La page ne bloque pas la commande — elle
+affiche un avis et invite à confirmer par téléphone : mieux vaut un appel
+qu'une vente refusée.
+
+**Attention :** le prix du produit, lui, reste écrit dans `src/lib/config.ts`.
+Si vous le changez dans le dashboard, changez-le aussi ici et redéployez, sinon
+la page affiche un montant et le hub en enregistre un autre.
 
 #### Ce que la page envoie
 
@@ -108,6 +142,7 @@ la page continue de fonctionner avec l'e-mail seul.
   "quantity": 1,
   "variant": "أسد",
   "delivery": "domicile",
+
   "note": "… — réf. page AY-GWGT5",
   "source": "Landing أسد & يارا",
   "total": 2200,
@@ -178,8 +213,10 @@ src/
     PiedDePage.tsx           pied de page minimal
     Icones.tsx               icônes SVG maison (aucune dépendance)
   data/wilayas.ts            les 58 wilayas + normalisation de recherche
+  data/tarifs-livraison.ts   grille NOEST recopiée du hub (npm run tarifs)
   lib/config.ts              prix, offres, variables d'environnement
   lib/commande.ts            envoi de la commande + copie locale
+  lib/livraison.ts           frais par wilaya, rafraîchis depuis le hub
   lib/pixel.ts               Meta Pixel
   lib/useRevele.ts           apparition au défilement
 ```

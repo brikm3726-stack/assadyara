@@ -114,6 +114,7 @@ export function Hero({ auClicCommander }: Props) {
               <span>
                 العلبة بـ <strong className="font-extrabold text-encre">2200 دج</strong>
               </span>
+              <span className="w-full text-[0.8rem] text-encre-3">+ التوصيل حسب الولاية</span>
             </p>
 
             <div className="mt-5 flex flex-col items-center gap-3.5 lg:items-start">

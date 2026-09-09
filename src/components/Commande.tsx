@@ -8,6 +8,14 @@ import {
   type CleParfum,
 } from '../lib/config';
 import { envoyerCommande, genererReference, type Commande as Bon } from '../lib/commande';
+import {
+  MODES_LIVRAISON,
+  estDesservie,
+  fraisLivraison,
+  useTarifsLivraison,
+  type Grille,
+  type ModeLivraison,
+} from '../lib/livraison';
 import { suivre, suivreUneFois } from '../lib/pixel';
 import { useRevele } from '../lib/useRevele';
 import { ChampWilaya } from './ChampWilaya';
@@ -75,8 +83,13 @@ const EXEMPLE_TELEPHONE = '\u2067مثال: \u20660550 00 00 00\u2069\u2069';
 export function Commande({ offre, parfum, parfumManquant, auSucces }: Props) {
   const [champs, setChamps] = useState<Champs>(CHAMPS_VIDES);
   const [erreurs, setErreurs] = useState<Erreurs>({});
+  const [livraison, setLivraison] = useState<ModeLivraison>('domicile');
   const [envoi, setEnvoi] = useState(false);
   const [bon, setBon] = useState<Bon | null>(null);
+
+  /* Grille NOEST : copie embarquée affichée tout de suite, rafraîchie depuis
+     le hub en arrière-plan. */
+  const grille = useTarifsLivraison();
 
   const refNom = useRef<HTMLInputElement>(null);
   const refTelephone = useRef<HTMLInputElement>(null);
@@ -90,6 +103,11 @@ export function Commande({ offre, parfum, parfumManquant, auSucces }: Props) {
 
   const prix = OFFRES[offre].prix;
   const produit = libelleProduit(offre, parfum);
+
+  /* `null` tant qu'aucune wilaya n'est choisie : on n'invente pas un montant
+     que l'acheteur découvrirait différent à la livraison. */
+  const frais = fraisLivraison(grille, champs.wilayaCode, livraison);
+  const total = prix + (frais ?? 0);
 
   const modifier = (cle: keyof Champs) => (valeur: string) => {
     setChamps((c) => ({ ...c, [cle]: valeur }));
@@ -153,9 +171,12 @@ export function Commande({ offre, parfum, parfumManquant, auSucces }: Props) {
       conditionnement: conditionnement(offre),
       parfum: offre === 'pack' ? null : parfum,
       prix,
+      livraison,
+      frais: frais ?? 0,
+      total,
     };
 
-    suivre('Lead', { content_name: produit, currency: 'DZD', value: prix });
+    suivre('Lead', { content_name: produit, currency: 'DZD', value: total });
 
     /* On laisse au réseau 2,5 s maximum : au-delà, l'acheteur voit quand même
        sa confirmation et l'envoi se termine en arrière-plan. */
@@ -166,7 +187,8 @@ export function Commande({ offre, parfum, parfumManquant, auSucces }: Props) {
       content_type: 'product',
       contents: [{ id: offre, quantity: offre === 'pack' ? 2 : 1 }],
       currency: 'DZD',
-      value: prix,
+      // Le chiffre d'affaires réel de la commande, livraison comprise.
+      value: total,
     });
 
     setEnvoi(false);
@@ -287,6 +309,13 @@ export function Commande({ offre, parfum, parfumManquant, auSucces }: Props) {
             />
           </Champ>
 
+          <ChoixLivraison
+            mode={livraison}
+            choisir={setLivraison}
+            grille={grille}
+            codeWilaya={champs.wilayaCode}
+          />
+
           <Champ
             id="notes"
             libelle="ملاحظات"
@@ -334,11 +363,35 @@ export function Commande({ offre, parfum, parfumManquant, auSucces }: Props) {
               </div>
               <div className="flex items-baseline justify-between gap-3">
                 <dt className="font-semibold text-encre-2">السعر :</dt>
-                <dd className="text-[1.3rem] font-extrabold text-rose-fonce">
+                <dd className="font-extrabold text-encre">
                   {prix} {DEVISE}
                 </dd>
               </div>
+              <div className="flex items-baseline justify-between gap-3">
+                <dt className="font-semibold text-encre-2">
+                  التوصيل {livraison === 'bureau' ? '(إلى المكتب)' : '(إلى المنزل)'} :
+                </dt>
+                <dd className="font-extrabold text-encre">
+                  {frais === null ? (
+                    <span className="text-[0.92rem] font-semibold text-encre-2">حسب الولاية</span>
+                  ) : (
+                    `${frais} ${DEVISE}`
+                  )}
+                </dd>
+              </div>
               <div className="flex items-baseline justify-between gap-3 border-t border-creme-3 pt-2">
+                <dt className="font-bold text-encre">المجموع :</dt>
+                <dd className="text-[1.3rem] font-extrabold text-rose-fonce">
+                  {frais === null ? (
+                    <span className="text-[1rem]">
+                      {prix} {DEVISE} + التوصيل
+                    </span>
+                  ) : (
+                    `${total} ${DEVISE}`
+                  )}
+                </dd>
+              </div>
+              <div className="flex items-baseline justify-between gap-3">
                 <dt className="font-semibold text-encre-2">الدفع :</dt>
                 <dd className="font-bold text-encre">عند الاستلام</dd>
               </div>
@@ -376,6 +429,107 @@ export function Commande({ offre, parfum, parfumManquant, auSucces }: Props) {
         </form>
       </div>
     </section>
+  );
+}
+
+
+/* ------------------------------------------------------------------ */
+
+/**
+ * Choix du mode de livraison, avec le tarif NOEST de la wilaya en face.
+ * Le prix s'affiche ici, dans le formulaire, et pas seulement à la fin :
+ * une acheteuse qui découvre les frais au dernier écran abandonne, et une
+ * acheteuse qui les découvre devant le livreur refuse le colis.
+ */
+function ChoixLivraison({
+  mode,
+  choisir,
+  grille,
+  codeWilaya,
+}: {
+  mode: ModeLivraison;
+  choisir: (mode: ModeLivraison) => void;
+  grille: Grille;
+  codeWilaya: string;
+}) {
+  const desservie = estDesservie(grille, codeWilaya);
+
+  return (
+    <div className="mb-5">
+      <span className="etiquette">طريقة التوصيل</span>
+
+      <div role="radiogroup" aria-label="طريقة التوصيل" className="grid gap-3 sm:grid-cols-2">
+        {MODES_LIVRAISON.map(({ cle, nom, detail }) => {
+          const coche = mode === cle;
+          const tarif = fraisLivraison(grille, codeWilaya, cle);
+          const Icone = cle === 'domicile' ? IconeMaison : IconeLivraison;
+
+          return (
+            <label key={cle} className="relative block cursor-pointer">
+              <input
+                type="radio"
+                name="livraison"
+                value={cle}
+                checked={coche}
+                onChange={() => choisir(cle)}
+                className="sr-only"
+              />
+              <div
+                className="flex items-center gap-3 rounded-2xl border p-3.5 transition-all duration-300"
+                style={{
+                  borderColor: coche ? 'var(--color-rose)' : 'var(--color-creme-3)',
+                  background: coche ? '#fdeef3' : 'var(--color-blanc)',
+                  boxShadow: coche ? '0 12px 26px -18px rgba(212,39,102,.7)' : 'none',
+                }}
+              >
+                <span
+                  aria-hidden
+                  className="grid h-9 w-9 shrink-0 place-items-center rounded-full"
+                  style={{
+                    background: coche ? 'var(--color-rose)' : 'var(--color-creme-2)',
+                    color: coche ? '#fff' : 'var(--color-or-fonce)',
+                  }}
+                >
+                  <Icone taille={18} />
+                </span>
+
+                <span className="flex-1 text-start">
+                  <span className="block text-[1rem] font-extrabold text-encre">{nom}</span>
+                  <span className="block text-[0.8rem] text-encre-2">{detail}</span>
+                </span>
+
+                <span className="shrink-0 font-extrabold whitespace-nowrap text-rose-fonce">
+                  {tarif === null ? (
+                    <span className="text-[0.85rem] font-semibold text-encre-3">—</span>
+                  ) : (
+                    `${tarif} ${DEVISE}`
+                  )}
+                </span>
+              </div>
+            </label>
+          );
+        })}
+      </div>
+
+      {!codeWilaya && (
+        <p className="mt-2 text-[0.86rem] text-encre-2">اختر ولايتك لمعرفة سعر التوصيل.</p>
+      )}
+
+      {codeWilaya && !desservie && (
+        <p
+          className="mt-2 flex items-start gap-2 rounded-xl p-3 text-[0.88rem]"
+          style={{
+            background: '#fdf4e3',
+            border: '1px solid color-mix(in srgb, var(--color-or) 55%, transparent)',
+            color: 'var(--color-or-fonce)',
+          }}
+        >
+          <IconeLivraison taille={17} className="mt-0.5 shrink-0" />
+          شركة التوصيل لا تخدم هذه الولاية حالياً. يمكنك إتمام الطلب وسنتصل بك
+          للاتفاق على طريقة أخرى.
+        </p>
+      )}
+    </div>
   );
 }
 
@@ -481,7 +635,12 @@ function Confirmation({
       <dl className="mx-auto max-w-sm space-y-2 text-start text-[0.98rem]">
         <Ligne intitule="رقم الطلب" valeur={bon.reference} />
         <Ligne intitule="المنتج" valeur={bon.produit} />
-        <Ligne intitule="السعر" valeur={`${bon.prix} ${DEVISE}`} accent />
+        <Ligne intitule="السعر" valeur={`${bon.prix} ${DEVISE}`} />
+        <Ligne
+          intitule={`التوصيل ${bon.livraison === 'bureau' ? '(إلى المكتب)' : '(إلى المنزل)'}`}
+          valeur={`${bon.frais} ${DEVISE}`}
+        />
+        <Ligne intitule="المجموع" valeur={`${bon.total} ${DEVISE}`} accent />
         <Ligne intitule="الهاتف" valeur={bon.telephone} />
         <Ligne intitule="العنوان" valeur={`${bon.commune} — ${bon.wilaya}`} />
       </dl>

@@ -60,6 +60,7 @@ export function CtaFlottant({ offre, actif, auClic }: Props) {
           <p className="text-[1.15rem] leading-none font-extrabold text-rose-fonce">
             {OFFRES[offre].prix} {DEVISE}
           </p>
+          <p className="text-[0.68rem] text-encre-3">+ التوصيل</p>
         </div>
         <a
           href="#commander"
