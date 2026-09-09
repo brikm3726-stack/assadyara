@@ -59,6 +59,19 @@ export function conditionnement(offre: CleOffre): string {
 export const WEB3FORMS_KEY = (import.meta.env.VITE_WEB3FORMS_KEY ?? '').trim();
 export const COMMANDE_ENDPOINT = (import.meta.env.VITE_COMMANDE_ENDPOINT ?? '').trim();
 
+/**
+ * Hub e-commerce (ecom-hub) — destination principale des commandes.
+ * Le hub relit le produit en base et recalcule les montants : le prix envoyé
+ * par la page est ignoré, c'est voulu. Chaque offre a donc son propre produit
+ * dans le dashboard, sinon 2200 × 2 remplacerait le tarif du pack à 3700.
+ */
+export const HUB_URL = (import.meta.env.VITE_HUB_URL ?? '').trim().replace(/\/$/, '');
+export const HUB_LANDING_ID = (import.meta.env.VITE_HUB_LANDING_ID ?? '').trim();
+export const HUB_PRODUITS: Record<CleOffre, string> = {
+  pack: (import.meta.env.VITE_HUB_PRODUIT_PACK ?? '').trim(),
+  unite: (import.meta.env.VITE_HUB_PRODUIT_UNITE ?? '').trim(),
+};
+
 /** Identifiant Meta Pixel — à remplir dans .env, jamais en dur dans le code. */
 export const PIXEL_ID = (import.meta.env.VITE_PIXEL_ID ?? '').trim();
 

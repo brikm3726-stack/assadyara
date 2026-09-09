@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { WILAYAS, normaliserArabe } from '../data/wilayas';
+import { WILAYAS, normaliserArabe, type Wilaya } from '../data/wilayas';
 import { IconeChevron, IconeCoche, IconeEpingle, IconeLoupe } from './Icones';
 
 type Props = {
   id?: string;
   valeur: string;
-  auChoix: (nom: string) => void;
+  auChoix: (wilaya: Wilaya) => void;
   erreur?: string;
   idErreur?: string;
 };
@@ -62,8 +62,8 @@ export function ChampWilaya({ id, valeur, auChoix, erreur, idErreur }: Props) {
     liste.current?.children[actif]?.scrollIntoView({ block: 'nearest' });
   }, [actif, ouvert]);
 
-  const valider = (nom: string) => {
-    auChoix(nom);
+  const valider = (wilaya: Wilaya) => {
+    auChoix(wilaya);
     setOuvert(false);
     setRecherche('');
     bouton.current?.focus();
@@ -79,7 +79,7 @@ export function ChampWilaya({ id, valeur, auChoix, erreur, idErreur }: Props) {
     } else if (evenement.key === 'Enter') {
       evenement.preventDefault();
       const choix = resultats[actif];
-      if (choix) valider(choix.nom);
+      if (choix) valider(choix);
     } else if (evenement.key === 'Escape') {
       evenement.preventDefault();
       setOuvert(false);
@@ -165,7 +165,7 @@ export function ChampWilaya({ id, valeur, auChoix, erreur, idErreur }: Props) {
                     id={`wilaya-${wilaya.code}`}
                     role="option"
                     aria-selected={choisie}
-                    onClick={() => valider(wilaya.nom)}
+                    onClick={() => valider(wilaya)}
                     onMouseEnter={() => setActif(index)}
                     className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-start transition-colors duration-150"
                     style={{

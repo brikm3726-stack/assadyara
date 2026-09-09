@@ -30,10 +30,26 @@ type Props = {
   auSucces: () => void;
 };
 
-type Champs = { nom: string; telephone: string; wilaya: string; commune: string; notes: string };
+type Champs = {
+  nom: string;
+  telephone: string;
+  /** Nom arabe, pour l'affichage. */
+  wilaya: string;
+  /** Code officiel (« 19 ») : c'est lui que le hub sait reconnaître. */
+  wilayaCode: string;
+  commune: string;
+  notes: string;
+};
 type Erreurs = Partial<Record<keyof Champs, string>>;
 
-const CHAMPS_VIDES: Champs = { nom: '', telephone: '', wilaya: '', commune: '', notes: '' };
+const CHAMPS_VIDES: Champs = {
+  nom: '',
+  telephone: '',
+  wilaya: '',
+  wilayaCode: '',
+  commune: '',
+  notes: '',
+};
 
 /** Accepte 0550…, +213 550…, 00213 550… et renvoie la forme locale 0XXXXXXXXX. */
 function normaliserTelephone(saisie: string): string {
@@ -129,6 +145,7 @@ export function Commande({ offre, parfum, parfumManquant, auSucces }: Props) {
       nom: champs.nom.trim(),
       telephone: normaliserTelephone(champs.telephone),
       wilaya: champs.wilaya,
+      wilayaCode: champs.wilayaCode,
       commune: champs.commune.trim(),
       notes: champs.notes.trim(),
       offre,
@@ -239,7 +256,10 @@ export function Commande({ offre, parfum, parfumManquant, auSucces }: Props) {
             <ChampWilaya
               id="wilaya"
               valeur={champs.wilaya}
-              auChoix={(nom) => modifier('wilaya')(nom)}
+              auChoix={(w) => {
+                setChamps((c) => ({ ...c, wilaya: w.nom, wilayaCode: w.code }));
+                setErreurs((e) => (e.wilaya ? { ...e, wilaya: undefined } : e));
+              }}
               erreur={erreurs.wilaya}
               idErreur="erreur-wilaya"
             />

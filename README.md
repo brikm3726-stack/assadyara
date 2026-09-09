@@ -14,52 +14,114 @@ Aucun compte, aucun panier, aucun paiement en ligne, aucune autre page.
 ```bash
 npm install
 npm run dev      # http://localhost:5180
-npm run build    # génère dist/
+npm run build    # génère dist/ (racine d'un domaine)
 npm run preview  # relit le dossier dist/
+npm run deploy   # build avec la base /assadyara/ + publication sur gh-pages
 ```
+
+La page est en ligne sur <https://brikm3726-stack.github.io/assadyara/>.
+GitHub Pages la sert depuis un sous-dossier : c'est pourquoi le déploiement
+passe par `build:pages`, qui fixe `--base=/assadyara/`. Un `npm run build`
+ordinaire produirait des chemins absolus cassés une fois publiés.
 
 > Ne lancez pas `npm run build` pendant que `npm run dev` tourne.
 
 ## Réglages (fichier `.env`)
 
-Copiez `.env.example` en `.env`. Les trois variables sont facultatives : sans
+Copiez `.env.example` en `.env`. Toutes les variables sont facultatives : sans
 elles la page tourne en **mode démo** (commande gardée dans le navigateur,
 événements Pixel affichés dans la console).
 
-| Variable                 | Rôle                                                        |
-| ------------------------ | ----------------------------------------------------------- |
-| `VITE_PIXEL_ID`          | Identifiant Meta Pixel. Vide = aucun suivi réel envoyé.      |
-| `VITE_WEB3FORMS_KEY`     | Clé Web3Forms : les commandes arrivent par e-mail.           |
-| `VITE_COMMANDE_ENDPOINT` | Ou votre propre URL, qui reçoit la commande en POST JSON.    |
+| Variable                  | Rôle                                                       |
+| ------------------------- | ---------------------------------------------------------- |
+| `VITE_HUB_URL`            | Adresse du hub. `https://ecom-hub-cyan.vercel.app`          |
+| `VITE_HUB_LANDING_ID`     | Code de la landing dans le dashboard (`LANDING_003`).       |
+| `VITE_HUB_PRODUIT_PACK`   | Code du produit facturé 3700 دج.                            |
+| `VITE_HUB_PRODUIT_UNITE`  | Code du produit facturé 2200 دج.                            |
+| `VITE_WEB3FORMS_KEY`      | Clé Web3Forms : une alerte e-mail à chaque commande.        |
+| `VITE_COMMANDE_ENDPOINT`  | Une URL de plus, qui reçoit la commande en POST JSON.       |
+| `VITE_PIXEL_ID`           | Identifiant Meta Pixel. Vide = aucun suivi réel envoyé.     |
 
-Après toute modification du `.env`, il faut **rebuilder** (`npm run build`) :
-Vite fige ces valeurs à la compilation.
+Après toute modification du `.env`, il faut **rebuilder et redéployer**
+(`npm run deploy`) : Vite fige ces valeurs à la compilation, elles vivent dans
+le fichier JavaScript publié.
 
 ### Où arrivent les commandes
 
-1. Elles sont **d'abord copiées dans le navigateur** (`localStorage`), puis
-   envoyées. La confirmation s'affiche sans attendre plus de 2,5 s : sur un
-   réseau mobile algérien capricieux, l'acheteur ne reste jamais bloqué.
-2. `VITE_WEB3FORMS_KEY` a la priorité sur `VITE_COMMANDE_ENDPOINT`.
+Les destinations sont **cumulables** : le hub enregistre, Web3Forms prévient
+par e-mail. Tout part en parallèle, en `keepalive`, et la confirmation
+s'affiche sans attendre plus de 2,5 s — sur un réseau mobile algérien, un
+écran figé, c'est la vente perdue. Une copie est toujours gardée dans le
+navigateur (`localStorage`, clé `commandes-asad-yara`).
 
-Format JSON envoyé :
+#### Le hub (ecom-hub → dashboard → NOEST)
+
+Trois gestes, une seule fois, dans <https://ecom-hub-cyan.vercel.app/admin> :
+
+1. **Produits → Nouveau produit**, deux fois. Le hub recalcule toujours le
+   montant à partir du produit et **ignore le prix envoyé par la page** : il
+   faut donc un produit par offre.
+
+   | Nom | Prix | Frais domicile / bureau |
+   | --- | --- | --- |
+   | `أسد + يارا — العلبتين` | `3700` | voir plus bas |
+   | `أسد أو يارا — علبة واحدة` | `2200` | voir plus bas |
+
+2. **Landing pages → Connecter une nouvelle landing page**, URL
+   `https://brikm3726-stack.github.io/assadyara/`.
+3. Reporter les trois codes obtenus dans `.env`, puis `npm run deploy`.
+
+```env
+VITE_HUB_URL=https://ecom-hub-cyan.vercel.app
+VITE_HUB_LANDING_ID=LANDING_003
+VITE_HUB_PRODUIT_PACK=PROD_002
+VITE_HUB_PRODUIT_UNITE=PROD_003
+```
+
+**Les frais de livraison.** Si les champs « Frais domicile » et « Frais
+bureau » du produit restent vides, le hub applique sa grille par wilaya et
+l'ajoute au total : la page annonce 3700 دج, le dashboard affiche 4400 دج, et
+le livreur réclame un montant que l'acheteur n'a jamais vu. Deux issues
+cohérentes : mettre `0` dans ces deux champs (livraison offerte, le prix
+affiché est le prix payé), ou afficher les frais sur la page.
+
+Tant que `VITE_HUB_LANDING_ID` est vide, l'appel au hub est simplement sauté :
+la page continue de fonctionner avec l'e-mail seul.
+
+#### Ce que la page envoie
 
 ```json
 {
-  "reference": "AY-4F2K9",
-  "date": "2026-09-09T14:32:00.000Z",
-  "nom": "أمينة بن علي",
-  "telephone": "0550123456",
-  "wilaya": "سطيف",
-  "commune": "العلمة",
-  "notes": "",
-  "offre": "pack",
-  "produit": "أسد + يارا",
-  "conditionnement": "2 parfums",
-  "parfum": null,
-  "prix": 3700
+  "landingPageId": "LANDING_003",
+  "productId": "PROD_003",
+  "customer": {
+    "name": "أمينة بن علي",
+    "phone": "0550123456",
+    "wilaya": "19",
+    "wilayaCode": "19",
+    "commune": "العلمة",
+    "address": "حي 20 أوت، عمارة ب"
+  },
+  "quantity": 1,
+  "variant": "أسد",
+  "delivery": "domicile",
+  "note": "… — réf. page AY-GWGT5",
+  "source": "Landing أسد & يارا",
+  "total": 2200,
+  "utm": { "utm_source": "facebook", "fbclid": "…" }
 }
 ```
+
+La wilaya part sous son **code** et jamais sous son nom arabe : le hub compare
+les noms après avoir retiré tout ce qui n'est pas latin, et « سطيف »
+deviendrait une chaîne vide, donc « Wilaya inconnue ». Les paramètres de
+campagne présents dans l'URL (`utm_*`, `fbclid`) sont transmis tels quels :
+le dashboard dira quelle publicité a vendu.
+
+#### Web3Forms
+
+Clé gratuite sur <https://web3forms.com>, à mettre dans `VITE_WEB3FORMS_KEY`.
+Joignable depuis l'Algérie, contrairement à FormSubmit.
 
 ### Meta Pixel
 
